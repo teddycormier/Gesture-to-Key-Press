@@ -1,0 +1,157 @@
+# Final Project - Teddy Cormier
+# Mediapipe and landmarks attributed to https://google.github.io/mediapipe/hands
+# ------------------------------------------------------------------------------
+
+import cv2
+import numpy as np
+import mediapipe as mp
+import tensorflow as tf
+from tensorflow.keras.models import load_model
+from pynput.keyboard import Key, Controller
+from time import sleep
+from PIL import Image
+
+# ----------------------------------
+# Importing keyboard as the controller
+
+keyboard = Controller()
+
+# ------------------------------------
+# Importing the images being displayed
+
+left = cv2.imread('/Users/teddycormier/Downloads/final_project_sensor_networks/NESleft.png',cv2.IMREAD_COLOR)
+
+right = cv2.imread('/Users/teddycormier/Downloads/final_project_sensor_networks/NESright.png',cv2.IMREAD_COLOR)
+
+jump = cv2.imread('/Users/teddycormier/Downloads/final_project_sensor_networks/NESjump.png',cv2.IMREAD_COLOR)
+
+regular = cv2.imread('/Users/teddycormier/Downloads/final_project_sensor_networks/NESregular.png',cv2.IMREAD_COLOR)
+
+# ----------------------------------
+# Importing hands/loading hand model
+
+mpHands = mp.solutions.hands
+hands = mpHands.Hands(max_num_hands=1, min_detection_confidence=0.7)
+mpDraw = mp.solutions.drawing_utils
+
+model = load_model('/Users/teddycormier/Downloads/final_project_sensor_networks/mp_hand_gesture')
+
+# --------------
+# Opening camera
+
+cap = cv2.VideoCapture(0)
+
+# ---------------------------
+# Booleans for is_key_pressed
+
+is_pressed_w = False
+is_pressed_s = False
+is_pressed_a = False
+is_pressed_d = False
+
+# --------------
+# Removing image
+
+isImg3 = False
+isImg1 = False
+isImg2 = False
+
+while True:
+
+    _, frame = cap.read()
+
+    x, y, c = frame.shape
+
+    frame = cv2.flip(frame, 1)
+    framergb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+    result = hands.process(framergb)
+
+    className = ''
+
+    # -----------------------------
+    # Credited to mediapipe [75-86]
+
+    if result.multi_hand_landmarks:
+        landmarks = []
+        for handslms in result.multi_hand_landmarks:
+            for lm in handslms.landmark:
+                lmx = int(lm.x * x)
+                lmy = int(lm.y * y)
+
+                landmarks.append([lmx, lmy])
+
+            mpDraw.draw_landmarks(frame, handslms, mpHands.HAND_CONNECTIONS)
+
+            prediction = model.predict([landmarks])
+            classID = np.argmax(prediction)
+            print(classID)
+
+        # ----------------------------------
+        # Using signal to call key_press
+
+            if classID == 2:
+                cv2.imshow('image', jump)
+                className = str(classID)
+                keyboard.press("w")
+                is_pressed_w = True
+                isImg3 = True           
+
+            elif classID == 3:
+                className = str(classID)
+                keyboard.press("s")
+                is_pressed_s = True
+
+            # ----------------------------------
+            # The class ID below gets recognized as 5
+            # and 7 - if one is not working, switch
+            # to the other. You can see which one is
+            # being recocnized in the terminal
+            
+            elif classID == 5:
+                cv2.imshow('image', left)
+                className = str(classID)
+                keyboard.press("a")
+                is_pressed_a = True
+                isImg1 = True             
+
+            elif classID == 0:
+                cv2.imshow('image', right)
+                className = str(classID)
+                keyboard.press("d")
+                is_pressed_d = True
+                isImg3 = True
+
+        # ----------------------------------
+        # Using one signal to cancel calls
+
+            elif classID == 8:
+                className = str(classID)
+                if is_pressed_w == True:
+                    cv2.imshow('image', regular)
+                    keyboard.release("w")
+                    is_pressed_w = False
+                if is_pressed_s == True:
+                    keyboard.release("s")
+                    is_pressed_s = False
+                if is_pressed_a == True:
+                    cv2.imshow('image', regular)
+                    keyboard.release("a")
+                    is_pressed_a = False
+                if is_pressed_d == True:
+                    cv2.imshow('image', regular)
+                    keyboard.release("d")
+                    is_pressed_wd = False
+
+        # ----------------------------------
+        # signal to quit program
+
+            elif classID == 1:
+                cv2.destroyAllWindows()
+                className = str(classID)
+                keyboard.type(" -> the program has been exited --> ")
+                quit()
+            else:
+                className = ' '
+
+            cv2.waitKey(1)
